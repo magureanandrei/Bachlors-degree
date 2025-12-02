@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.diabetesapp.ui.components.BottomNavBar
 import com.example.diabetesapp.ui.screens.HomeScreen
+import com.example.diabetesapp.ui.screens.CalculateBolusScreen
 import com.example.diabetesapp.ui.theme.DiabetesAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -29,19 +30,36 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen() {
     var selectedRoute by remember { mutableStateOf("home") }
+    var currentScreen by remember { mutableStateOf("home") }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            BottomNavBar(
-                selectedRoute = selectedRoute,
-                onNavigate = { route -> selectedRoute = route }
-            )
+            // Only show bottom nav on main screens, not on detail screens
+            if (currentScreen in listOf("home", "history", "settings")) {
+                BottomNavBar(
+                    selectedRoute = selectedRoute,
+                    onNavigate = { route -> 
+                        selectedRoute = route
+                        currentScreen = route
+                    }
+                )
+            }
         }
     ) { innerPadding ->
-        when (selectedRoute) {
-            "home" -> HomeScreen(modifier = Modifier.padding(innerPadding))
-            else -> HomeScreen(modifier = Modifier.padding(innerPadding)) // Placeholder for other screens
+        when (currentScreen) {
+            "home" -> HomeScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
+            "calculate_bolus" -> CalculateBolusScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateBack = { currentScreen = selectedRoute }
+            )
+            else -> HomeScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
         }
     }
 }

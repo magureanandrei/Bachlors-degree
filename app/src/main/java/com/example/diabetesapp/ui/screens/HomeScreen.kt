@@ -18,7 +18,10 @@ import androidx.compose.ui.res.painterResource
 import com.example.diabetesapp.R
 
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onNavigateToCalculateBolus: () -> Unit = {}
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -32,7 +35,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.weight(1f))
 
         // Action Buttons
-        ActionButtons()
+        ActionButtons(onCalculateBolusClick = onNavigateToCalculateBolus)
 
         // Educational Disclaimer
         DisclaimerBanner()
@@ -105,13 +108,13 @@ fun SummaryItem(
 }
 
 @Composable
-fun ActionButtons() {
+fun ActionButtons(onCalculateBolusClick: () -> Unit = {}) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Button(
-            onClick = { /* TODO */ },
+            onClick = onCalculateBolusClick,
             modifier = Modifier
                 .weight(1f)
                 .height(56.dp),
