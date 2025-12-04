@@ -50,7 +50,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(platform("androidx.compose:compose-bom:2024.10.00")) // pick a BOM version that matches your project
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     testImplementation(libs.junit)
