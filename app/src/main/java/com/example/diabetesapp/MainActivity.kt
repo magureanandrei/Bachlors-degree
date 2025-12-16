@@ -7,10 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.diabetesapp.ui.components.BottomNavBar
+import com.example.diabetesapp.ui.screens.HomeScreen
+import com.example.diabetesapp.ui.screens.CalculateBolusScreen
 import com.example.diabetesapp.ui.theme.DiabetesAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,29 +21,53 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DiabetesAppTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                MainScreen()
             }
         }
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+fun MainScreen() {
+    var selectedRoute by remember { mutableStateOf("home") }
+    var currentScreen by remember { mutableStateOf("home") }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            // Only show bottom nav on main screens, not on detail screens
+            if (currentScreen in listOf("home", "history", "settings")) {
+                BottomNavBar(
+                    selectedRoute = selectedRoute,
+                    onNavigate = { route -> 
+                        selectedRoute = route
+                        currentScreen = route
+                    }
+                )
+            }
+        }
+    ) { innerPadding ->
+        when (currentScreen) {
+            "home" -> HomeScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
+            "calculate_bolus" -> CalculateBolusScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateBack = { currentScreen = selectedRoute }
+            )
+            else -> HomeScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
+        }
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+fun MainScreenPreview() {
     DiabetesAppTheme {
-        Greeting("Android")
+        MainScreen()
     }
 }
