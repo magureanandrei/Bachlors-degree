@@ -11,8 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.diabetesapp.ui.components.BottomNavBar
-import com.example.diabetesapp.ui.screens.HomeScreen
-import com.example.diabetesapp.ui.screens.CalculateBolusScreen
+import com.example.diabetesapp.ui.screens.*
 import com.example.diabetesapp.ui.theme.DiabetesAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -35,8 +34,8 @@ fun MainScreen() {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            // Only show bottom nav on main screens, not on detail screens
-            if (currentScreen in listOf("home", "history", "settings")) {
+            // Show bottom nav on all main screens, hide only on detail screens
+            if (currentScreen in listOf("home", "bolus", "history", "stats", "settings")) {
                 BottomNavBar(
                     selectedRoute = selectedRoute,
                     onNavigate = { route -> 
@@ -49,6 +48,22 @@ fun MainScreen() {
     ) { innerPadding ->
         when (currentScreen) {
             "home" -> HomeScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
+            "bolus" -> BolusScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
+            "history" -> HistoryScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
+            "stats" -> StatsScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+            )
+            "settings" -> SettingsScreen(
                 modifier = Modifier.padding(innerPadding),
                 onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
             )
