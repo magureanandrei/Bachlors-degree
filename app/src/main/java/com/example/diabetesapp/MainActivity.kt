@@ -35,7 +35,7 @@ fun MainScreen() {
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             // Show bottom nav on all main screens, hide only on detail screens
-            if (currentScreen in listOf("home", "bolus", "history", "stats", "settings")) {
+            if (currentScreen in listOf("home", "bolus", "history", "stats", "menu")) {
                 BottomNavBar(
                     selectedRoute = selectedRoute,
                     onNavigate = { route -> 
@@ -63,9 +63,14 @@ fun MainScreen() {
                 modifier = Modifier.padding(innerPadding),
                 onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
             )
-            "settings" -> SettingsScreen(
+            "menu" -> MenuScreen(
                 modifier = Modifier.padding(innerPadding),
-                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" }
+                onNavigateToCalculateBolus = { currentScreen = "calculate_bolus" },
+                onNavigateToBolusSettings = { currentScreen = "bolus_settings" }
+            )
+            "bolus_settings" -> BolusSettingsScreen(
+                modifier = Modifier.padding(innerPadding),
+                onNavigateBack = { currentScreen = selectedRoute }
             )
             "calculate_bolus" -> CalculateBolusScreen(
                 modifier = Modifier.padding(innerPadding),
