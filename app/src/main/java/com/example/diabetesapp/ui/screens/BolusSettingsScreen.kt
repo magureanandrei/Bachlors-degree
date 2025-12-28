@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,16 +20,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.diabetesapp.data.models.InsulinType
 import com.example.diabetesapp.data.repository.BolusSettingsRepository
+import com.example.diabetesapp.ui.components.DurationPickerSheet
 import com.example.diabetesapp.ui.components.ExpandableSettingsCard
+import com.example.diabetesapp.utils.FormatUtils
 import com.example.diabetesapp.viewmodel.BolusSettingsViewModel
 import com.example.diabetesapp.viewmodel.BolusSettingsViewModelFactory
 import com.example.diabetesapp.viewmodel.ExpandableCard
+import com.example.diabetesapp.viewmodel.FieldType
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,10 +52,73 @@ fun BolusSettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val settings = uiState.settings
 
+    // Coroutine scope for navigation delay
+    val coroutineScope = rememberCoroutineScope()
+
+    // State for duration picker dialog
+    var showDurationPicker by remember { mutableStateOf(false) }
+
+    // Snackbar for validation messages
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show snackbar when there's a save message
+    LaunchedEffect(uiState.saveMessage) {
+        uiState.saveMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearSaveMessage()
+        }
+    }
+
+    // Remember text field values for validation
+    var durationText by remember(settings.durationOfAction) {
+        mutableStateOf(FormatUtils.formatDecimal(settings.durationOfAction))
+    }
+    var targetBGText by remember(settings.targetBG) {
+        mutableStateOf(if (settings.targetBG == 0f) "100" else settings.targetBG.toInt().toString())
+    }
+    var globalIcrText by remember(settings.icrMorning) {
+        mutableStateOf(settings.icrMorning.toInt().toString())
+    }
+    var icrMorningText by remember(settings.icrMorning) {
+        mutableStateOf(settings.icrMorning.toInt().toString())
+    }
+    var icrNoonText by remember(settings.icrNoon) {
+        mutableStateOf(settings.icrNoon.toInt().toString())
+    }
+    var icrEveningText by remember(settings.icrEvening) {
+        mutableStateOf(settings.icrEvening.toInt().toString())
+    }
+    var icrNightText by remember(settings.icrNight) {
+        mutableStateOf(settings.icrNight.toInt().toString())
+    }
+    var globalIsfText by remember(settings.isfMorning) {
+        mutableStateOf(settings.isfMorning.toInt().toString())
+    }
+    var isfMorningText by remember(settings.isfMorning) {
+        mutableStateOf(settings.isfMorning.toInt().toString())
+    }
+    var isfNoonText by remember(settings.isfNoon) {
+        mutableStateOf(settings.isfNoon.toInt().toString())
+    }
+    var isfEveningText by remember(settings.isfEvening) {
+        mutableStateOf(settings.isfEvening.toInt().toString())
+    }
+    var isfNightText by remember(settings.isfNight) {
+        mutableStateOf(settings.isfNight.toInt().toString())
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFF5F5F5))
+            .padding(paddingValues)
     ) {
         // Top Bar
         Card(
@@ -147,33 +218,80 @@ fun BolusSettingsScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Duration of Action - Number Input (Decimal)
-                var durationText by remember(settings.durationOfAction) {
-                    mutableStateOf(settings.durationOfAction.toString())
+                // Duration of Action - Wheel Picker (Bottom Sheet)
+                Column {
+                    val displayValue = if (durationText.isNotEmpty()) {
+                        FormatUtils.formatDurationDisplay(durationText)
+                    } else {
+                        ""
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDurationPicker = true }
+                    ) {
+                        OutlinedTextField(
+                            value = displayValue,
+                            onValueChange = { /* Read-only */ },
+                            readOnly = true,
+                            label = { Text("Duration of Action") },
+                            placeholder = { Text("Tap to select") },
+                            trailingIcon = {
+                                IconButton(onClick = { showDurationPicker = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = "Pick duration",
+                                        tint = Color(0xFF00897B)
+                                    )
+                                }
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal,
+                                imeAction = ImeAction.Next
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF00897B),
+                                focusedLabelColor = Color(0xFF00897B),
+                                unfocusedBorderColor = Color(0xFFE0E0E0),
+                                errorBorderColor = Color.Red,
+                                disabledTextColor = Color.Black,
+                                disabledBorderColor = Color(0xFFE0E0E0),
+                                disabledLabelColor = Color.Gray
+                            ),
+                            supportingText = {
+                                if (uiState.durationError != null) {
+                                    Text(
+                                        text = uiState.durationError!!,
+                                        color = Color.Red,
+                                        fontSize = 12.sp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "How long your insulin stays active",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            },
+                            isError = uiState.durationError != null
+                        )
+                    }
                 }
 
-                Column {
-                    OutlinedTextField(
-                        value = durationText,
-                        onValueChange = {
-                            durationText = it
-                            viewModel.updateDurationOfAction(it)
-                        },
-                        label = { Text("Duration (hours)") },
-                        placeholder = { Text("e.g., 4.0") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF00897B),
-                            focusedLabelColor = Color(0xFF00897B),
-                            unfocusedBorderColor = Color(0xFFE0E0E0)
-                        ),
-                        supportingText = {
-                            Text(
-                                text = "Time until insulin is fully gone (e.g., 4.0).",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
+                // Duration Picker Bottom Sheet
+                if (showDurationPicker) {
+                    DurationPickerSheet(
+                        initialValue = durationText.toDoubleOrNull() ?: 4.0,
+                        onDismiss = { showDurationPicker = false },
+                        onConfirm = { selectedDuration ->
+                            val formattedValue = FormatUtils.formatDoubleForUi(selectedDuration)
+                            durationText = formattedValue
+                            viewModel.updateDurationOfAction(formattedValue)
+                            viewModel.validateFieldLive(FieldType.DURATION, formattedValue)
+                            showDurationPicker = false
                         }
                     )
                 }
@@ -187,10 +305,6 @@ fun BolusSettingsScreen(
                 onToggleExpand = { viewModel.toggleCardExpansion(ExpandableCard.ICR) }
             ) {
                 // Global Input (Simple Mode)
-                var globalIcrText by remember(settings.icrMorning) {
-                    mutableStateOf(settings.icrMorning.toInt().toString())
-                }
-
                 AnimatedVisibility(
                     visible = !uiState.icrTimeDependent,
                     enter = expandVertically(),
@@ -202,6 +316,7 @@ fun BolusSettingsScreen(
                             onValueChange = {
                                 globalIcrText = it
                                 viewModel.updateGlobalIcr(it)
+                                viewModel.clearError("icrGlobal")
                             },
                             label = { Text("1 Unit covers __ g carbs") },
                             suffix = { Text("g/unit", fontSize = 12.sp, color = Color.Gray) },
@@ -210,15 +325,25 @@ fun BolusSettingsScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF00897B),
                                 focusedLabelColor = Color(0xFF00897B),
-                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                                unfocusedBorderColor = Color(0xFFE0E0E0),
+                                errorBorderColor = Color.Red
                             ),
                             supportingText = {
-                                Text(
-                                    text = "Standard ratio for all times of day.",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                            }
+                                if (uiState.icrGlobalError != null) {
+                                    Text(
+                                        text = uiState.icrGlobalError!!,
+                                        color = Color.Red,
+                                        fontSize = 12.sp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Standard ratio for all times of day.",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            },
+                            isError = uiState.icrGlobalError != null
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -263,9 +388,6 @@ fun BolusSettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // Morning (06-11)
-                        var icrMorningText by remember(settings.icrMorning) {
-                            mutableStateOf(settings.icrMorning.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -284,27 +406,37 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = icrMorningText,
-                                onValueChange = {
-                                    icrMorningText = it
-                                    viewModel.updateIcrMorning(it)
-                                },
-                                suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = icrMorningText,
+                                    onValueChange = {
+                                        icrMorningText = it
+                                        viewModel.updateIcrMorning(it)
+                                        viewModel.clearError("icrMorning")
+                                    },
+                                    suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.icrMorningError != null
+                                )
+                                if (uiState.icrMorningError != null) {
+                                    Text(
+                                        text = uiState.icrMorningError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Noon (11-16)
-                        var icrNoonText by remember(settings.icrNoon) {
-                            mutableStateOf(settings.icrNoon.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -323,27 +455,37 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = icrNoonText,
-                                onValueChange = {
-                                    icrNoonText = it
-                                    viewModel.updateIcrNoon(it)
-                                },
-                                suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = icrNoonText,
+                                    onValueChange = {
+                                        icrNoonText = it
+                                        viewModel.updateIcrNoon(it)
+                                        viewModel.clearError("icrNoon")
+                                    },
+                                    suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.icrNoonError != null
+                                )
+                                if (uiState.icrNoonError != null) {
+                                    Text(
+                                        text = uiState.icrNoonError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Evening (16-23)
-                        var icrEveningText by remember(settings.icrEvening) {
-                            mutableStateOf(settings.icrEvening.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -362,27 +504,37 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = icrEveningText,
-                                onValueChange = {
-                                    icrEveningText = it
-                                    viewModel.updateIcrEvening(it)
-                                },
-                                suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = icrEveningText,
+                                    onValueChange = {
+                                        icrEveningText = it
+                                        viewModel.updateIcrEvening(it)
+                                        viewModel.clearError("icrEvening")
+                                    },
+                                    suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.icrEveningError != null
+                                )
+                                if (uiState.icrEveningError != null) {
+                                    Text(
+                                        text = uiState.icrEveningError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Night (23-06)
-                        var icrNightText by remember(settings.icrNight) {
-                            mutableStateOf(settings.icrNight.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -401,21 +553,34 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = icrNightText,
-                                onValueChange = {
-                                    icrNightText = it
-                                    viewModel.updateIcrNight(it)
-                                },
-                                suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = icrNightText,
+                                    onValueChange = {
+                                        icrNightText = it
+                                        viewModel.updateIcrNight(it)
+                                        viewModel.clearError("icrNight")
+                                    },
+                                    suffix = { Text("g/unit", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.icrNightError != null
+                                )
+                                if (uiState.icrNightError != null) {
+                                    Text(
+                                        text = uiState.icrNightError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         Text(
@@ -437,10 +602,6 @@ fun BolusSettingsScreen(
                 onToggleExpand = { viewModel.toggleCardExpansion(ExpandableCard.ISF) }
             ) {
                 // Global Input (Simple Mode)
-                var globalIsfText by remember(settings.isfMorning) {
-                    mutableStateOf(settings.isfMorning.toInt().toString())
-                }
-
                 AnimatedVisibility(
                     visible = !uiState.isfTimeDependent,
                     enter = expandVertically(),
@@ -452,6 +613,7 @@ fun BolusSettingsScreen(
                             onValueChange = {
                                 globalIsfText = it
                                 viewModel.updateGlobalIsf(it)
+                                viewModel.clearError("isfGlobal")
                             },
                             label = { Text("1 Unit lowers BG by __ mg/dL") },
                             suffix = { Text("mg/dL", fontSize = 12.sp, color = Color.Gray) },
@@ -460,15 +622,25 @@ fun BolusSettingsScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF00897B),
                                 focusedLabelColor = Color(0xFF00897B),
-                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                                unfocusedBorderColor = Color(0xFFE0E0E0),
+                                errorBorderColor = Color.Red
                             ),
                             supportingText = {
-                                Text(
-                                    text = "How much 1 unit lowers blood glucose for all times.",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                            }
+                                if (uiState.isfGlobalError != null) {
+                                    Text(
+                                        text = uiState.isfGlobalError!!,
+                                        color = Color.Red,
+                                        fontSize = 12.sp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "How much 1 unit lowers blood glucose for all times.",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            },
+                            isError = uiState.isfGlobalError != null
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -513,9 +685,6 @@ fun BolusSettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // Morning (06-11)
-                        var isfMorningText by remember(settings.isfMorning) {
-                            mutableStateOf(settings.isfMorning.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -534,27 +703,37 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = isfMorningText,
-                                onValueChange = {
-                                    isfMorningText = it
-                                    viewModel.updateIsfMorning(it)
-                                },
-                                suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = isfMorningText,
+                                    onValueChange = {
+                                        isfMorningText = it
+                                        viewModel.updateIsfMorning(it)
+                                        viewModel.clearError("isfMorning")
+                                    },
+                                    suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.isfMorningError != null
+                                )
+                                if (uiState.isfMorningError != null) {
+                                    Text(
+                                        text = uiState.isfMorningError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Noon (11-16)
-                        var isfNoonText by remember(settings.isfNoon) {
-                            mutableStateOf(settings.isfNoon.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -573,27 +752,37 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = isfNoonText,
-                                onValueChange = {
-                                    isfNoonText = it
-                                    viewModel.updateIsfNoon(it)
-                                },
-                                suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = isfNoonText,
+                                    onValueChange = {
+                                        isfNoonText = it
+                                        viewModel.updateIsfNoon(it)
+                                        viewModel.clearError("isfNoon")
+                                    },
+                                    suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.isfNoonError != null
+                                )
+                                if (uiState.isfNoonError != null) {
+                                    Text(
+                                        text = uiState.isfNoonError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Evening (16-23)
-                        var isfEveningText by remember(settings.isfEvening) {
-                            mutableStateOf(settings.isfEvening.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -612,27 +801,37 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = isfEveningText,
-                                onValueChange = {
-                                    isfEveningText = it
-                                    viewModel.updateIsfEvening(it)
-                                },
-                                suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = isfEveningText,
+                                    onValueChange = {
+                                        isfEveningText = it
+                                        viewModel.updateIsfEvening(it)
+                                        viewModel.clearError("isfEvening")
+                                    },
+                                    suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.isfEveningError != null
+                                )
+                                if (uiState.isfEveningError != null) {
+                                    Text(
+                                        text = uiState.isfEveningError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Night (23-06)
-                        var isfNightText by remember(settings.isfNight) {
-                            mutableStateOf(settings.isfNight.toInt().toString())
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -651,21 +850,34 @@ fun BolusSettingsScreen(
                                     color = Color(0xFF757575)
                                 )
                             }
-                            OutlinedTextField(
-                                value = isfNightText,
-                                onValueChange = {
-                                    isfNightText = it
-                                    viewModel.updateIsfNight(it)
-                                },
-                                suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(120.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF00897B),
-                                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                                ),
-                                singleLine = true
-                            )
+                            Column {
+                                OutlinedTextField(
+                                    value = isfNightText,
+                                    onValueChange = {
+                                        isfNightText = it
+                                        viewModel.updateIsfNight(it)
+                                        viewModel.clearError("isfNight")
+                                    },
+                                    suffix = { Text("mg/dL", fontSize = 11.sp, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.width(120.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF00897B),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        errorBorderColor = Color.Red
+                                    ),
+                                    singleLine = true,
+                                    isError = uiState.isfNightError != null
+                                )
+                                if (uiState.isfNightError != null) {
+                                    Text(
+                                        text = uiState.isfNightError!!,
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
                         }
 
                         Text(
@@ -686,15 +898,12 @@ fun BolusSettingsScreen(
                 isExpanded = viewModel.isCardExpanded(ExpandableCard.TARGET_BG),
                 onToggleExpand = { viewModel.toggleCardExpansion(ExpandableCard.TARGET_BG) }
             ) {
-                var targetText by remember(settings.targetBG) {
-                    mutableStateOf(if (settings.targetBG == 0f) "100" else settings.targetBG.toInt().toString())
-                }
-
                 OutlinedTextField(
-                    value = targetText,
+                    value = targetBGText,
                     onValueChange = {
-                        targetText = it
+                        targetBGText = it
                         viewModel.updateTargetBG(it)
+                        viewModel.clearError("targetBG")
                     },
                     label = { Text("Target Value (mg/dL)") },
                     placeholder = { Text("100") },
@@ -703,21 +912,78 @@ fun BolusSettingsScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF00897B),
                         focusedLabelColor = Color(0xFF00897B),
-                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        errorBorderColor = Color.Red
                     ),
                     supportingText = {
-                        Text(
-                            text = "Your desired blood glucose level. Required for correction formula.",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                    }
+                        if (uiState.targetBGError != null) {
+                            Text(
+                                text = uiState.targetBGError!!,
+                                color = Color.Red,
+                                fontSize = 12.sp
+                            )
+                        } else {
+                            Text(
+                                text = "Your desired blood glucose level. Required for correction formula.",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    },
+                    isError = uiState.targetBGError != null
                 )
             }
 
             // Bottom spacing
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Save Button
+            Button(
+                onClick = {
+                    val isValid = viewModel.validateAndSave(
+                        durationText = durationText,
+                        targetBGText = targetBGText,
+                        icrGlobalText = globalIcrText,
+                        icrMorningText = icrMorningText,
+                        icrNoonText = icrNoonText,
+                        icrEveningText = icrEveningText,
+                        icrNightText = icrNightText,
+                        isfGlobalText = globalIsfText,
+                        isfMorningText = isfMorningText,
+                        isfNoonText = isfNoonText,
+                        isfEveningText = isfEveningText,
+                        isfNightText = isfNightText
+                    )
+
+                    // If validation passed, navigate back after a short delay
+                    if (isValid) {
+                        // Delay to show success message before navigating
+                        coroutineScope.launch {
+                            delay(1500) // 1.5 seconds
+                            onNavigateBack()
+                        }
+                    }
+                },
+                enabled = viewModel.areAllFieldsValid(), // Disable if any field has errors
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00897B),
+                    disabledContainerColor = Color.Gray
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Save Settings",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (viewModel.areAllFieldsValid()) Color.White else Color.LightGray
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
+    }
 }
-
